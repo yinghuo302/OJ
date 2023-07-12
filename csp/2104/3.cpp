@@ -24,7 +24,7 @@ Host sender,receiver;
 string type;
 IPAddress sender_ip;
 int timeout;
-int ip_try_alloc;
+IPAddress ip_try_alloc;
 unordered_map<Host,IPAddress> mp;
 struct IpState{
 	int state;
@@ -33,31 +33,31 @@ struct IpState{
 	IpState():state(unalloc),timeout(0){}
 };
 IpState pool[10001];
-inline int checkState(int i){
-	if(t>=pool[i].timeout){
-		if(pool[i].state==waitalloc){
-			pool[i].state = unalloc;
-			mp.erase(pool[i].h);
-			pool[i].h.clear();
-		}else if(pool[i].state==occupy){
-			pool[i].state = time_out;
-			pool[i].timeout = 0;
+inline IPAddress getIpByHost(const Host& h){
+	from_to(i,1,N+1)
+		if(pool[i].h==h)
+			return i;
+	return 0;
+}
+inline IPAddress getIpByState(int state){
+	from_to(i,1,N+1)
+		if(pool[i].state==state)
+			return i;
+	return 0;
+}
+void updateState(){
+	from_to(i,1,N+1){
+		if(pool[i].timeout!=0&&pool[i].timeout<=t){
+			if(pool[i].state==waitalloc){
+				pool[i].state = unalloc;
+				pool[i].h.clear();
+				pool[i].timeout = 0;
+			}else if(pool[i].state==occupy){
+				pool[i].state = time_out;
+				pool[i].timeout = 0;
+			}
 		}
 	}
-	return pool[i].state;
-}
-IPAddress getIp(){
-	int min_unalloc = 0, min_timeout = 0;
-	from_to(i,1,N+1){
-		if(min_unalloc!=0)
-			break;
-		int state = checkState(i);
-		if(state==unalloc)
-			min_unalloc = i;
-		else if (state==time_out&&min_timeout==0)
-			min_timeout = i;
-	}
-	return (min_unalloc==0)? min_timeout:min_unalloc;
 }
 inline int getTimeout(){
 	if(timeout==0)
@@ -80,16 +80,10 @@ void sendMessage(string _type){
 void DISHandler(){
 	if(receiver!="*")
 		return ;
-	if(mp.count(sender)){
-		ip_try_alloc = mp[sender];
-	}else{
-		ip_try_alloc = getIp();
-		if(ip_try_alloc==0)
-			return ;
-	}
-	mp[sender] = ip_try_alloc;
-	if(pool[ip_try_alloc].state==time_out)
-		mp.erase(pool[ip_try_alloc].h);
+	ip_try_alloc = getIpByHost(sender);
+	if(ip_try_alloc==0) ip_try_alloc = getIpByState(unalloc);
+	if(ip_try_alloc==0) ip_try_alloc = getIpByState(time_out);
+	if(ip_try_alloc==0) return;
 	pool[ip_try_alloc].h = sender;
 	pool[ip_try_alloc].state = waitalloc;
 	pool[ip_try_alloc].timeout = getTimeout();
@@ -99,16 +93,15 @@ void REQHandler(){
 	if(receiver=="*")
 		return ;
 	if(receiver!=H){
-		if(mp.count(sender)){
-			int ip = mp[sender];
-			pool[ip].state = unalloc;
-			pool[ip].h.clear();
-			pool[ip].timeout = 0;
-			mp.erase(sender);
+		from_to(i,1,N+1){
+			if(pool[i].h!=sender||pool[i].state!=waitalloc) continue;
+			pool[i].state = unalloc;
+			pool[i].h.clear();
+			pool[i].timeout = 0;
 		}
 		return ;
 	}
-	if(mp.count(sender)&&mp[sender]==sender_ip){
+	if(sender_ip>=1&&sender_ip<=N&&pool[sender_ip].h==sender){
 		pool[sender_ip].state = occupy;
 		pool[sender_ip].timeout = getTimeout();
 		sendMessage("ACK");
@@ -133,6 +126,7 @@ int main(){
 	cin >> n;
 	range(i,n){
 		cin >> t >> sender >> receiver >> type >> sender_ip >> timeout;
+		updateState();
 		messageHandler();
 	}
 	return 0;

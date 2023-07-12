@@ -1,7 +1,7 @@
 /*
  * @Author: zanilia
  * @Date: 2023-03-08 21:39:29
- * @LastEditTime: 2023-03-14 11:37:50
+ * @LastEditTime: 2023-03-16 11:15:30
  * @Descripttion: 
  */
 #include <iostream>
@@ -22,7 +22,7 @@ struct Info{
 };
 struct Transform{
 	double k_xx,k_xy,b_x,k_yx,k_yy,b_y;
-	Transform():k_xx(0),k_xy(0), b_x(0),k_yx(0),k_yy(0),b_y(0){}
+	Transform():k_xx(1),k_xy(0), b_x(0),k_yx(0),k_yy(1),b_y(0){}
 	Transform(double k_xx,double k_xy,double b_x,double k_yx,double k_yy,double b_y):k_xx(k_xx) ,k_xy(k_xy), b_x( b_x),k_yx(k_yx),k_yy(k_yy),b_y(b_y) {}
 	Info operator()(const Info& a)const{
 		Info ans;
@@ -43,13 +43,10 @@ struct Transform{
 		ans.b_y = k_yx * t.b_x + k_yy * t.b_y + b_y;
 		return ans;
 	}
-	bool operator!() const {
-		return k_xx==0 && k_xy==0 && b_x==0 && k_yx==0 && k_yy==0 && b_y ==0;
-	}
 };
-double x[500000],y[500000];
-Info tree[4*500000];
-Transform lazy[4*500000];
+double x[500001],y[500001];
+Info tree[4*500001];
+Transform lazy[4*500001];
 int n,q;
 void build(int root,int l, int r) {
 	if(l==r){
@@ -61,7 +58,6 @@ void build(int root,int l, int r) {
 	tree[root] = tree[root*2] + tree[root*2+1];
 }
 inline void pushDown(int root){
-	if(!lazy[root]) return ;
 	int ls = root*2, rs = ls+1;
 	lazy[ls] = lazy[root](lazy[ls]); tree[ls] = lazy[root](tree[ls]);
 	lazy[rs] = lazy[root](lazy[rs]); tree[rs] = lazy[root](tree[rs]);
@@ -85,6 +81,7 @@ void update(int root,int start,int end,int l,int r,const Transform& t){
 		lazy[root] = t(lazy[root]);
 		return;
 	}
+	pushDown(root);
 	int leftroot = root * 2;
 	int rightroot = root * 2 + 1;
 	int mid = (start+end)/2;

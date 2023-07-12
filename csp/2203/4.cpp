@@ -1,7 +1,7 @@
 /*
  * @Author: zanilia
  * @Date: 2023-03-10 16:33:59
- * @LastEditTime: 2023-03-15 20:57:16
+ * @LastEditTime: 2023-03-15 21:06:24
  * @Descripttion: 
  */
 #include <iostream>
@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <set>
 #include <vector>
+#include <cassert>
 using namespace std;
 struct Node{
 	int u;
@@ -26,51 +27,35 @@ struct Apply{
 	Apply() = default;
 	Apply(int u,int v,long long traffic):u(u),v(v),traffic(traffic){}
 };
-struct Pair{
-	int u,v;
-	Pair() = default;
-	Pair(int u,int v):u(max(u,v)),v(min(u,v)){}
-};
-struct MyHash{
-	size_t operator()(const Pair& p) const {
-		return hash<int>()(p.u) ^ hash<int>()(p.v);
-	}
-};
-struct Equal{
-	bool operator()(const Pair& p1,const Pair& p2) const {
-		return p1.u==p2.u && p1.v == p2.v;
-	}
-};
 vector<Apply> expire[100001];
-unordered_map<int,set<Node>> traffic_mp;
-unordered_map<Pair,int,MyHash,Equal> pair_mp;
-Pair tmp_p; Apply tmp_a;
-unordered_set<int> not_island;
+set<Node> traffic_mp[100001];
+unordered_map<long long,long long> pair_mp;
+long long tmp_p; Apply tmp_a;
 int master_obj[100001] = {0};
-int n,m,k,y,l,query,master_cnt;
+int n,m,k,y,l,query,island_cnt,master_cnt;
 bool p,q;
+inline long long mypair(long long u,long long v){
+	return (u>v)? (u<<20)|v : (v << 20) | u ;
+}
+
+inline bool check_island(int u){
+	return master_obj[u] == 0;
+}
+inline bool check_pair(int u){
+	if(check_island(u)) return false;
+	int to = master_obj[u];
+	return master_obj[to] == u;
+}
 void updateState(int u){
-	int now_master = 0;
-	if(traffic_mp[u].empty())
-		not_island.erase(u);
-	else{
-		not_island.insert(u);
-		now_master = traffic_mp[u].rbegin()->u;
-	}
-	int pre_master = master_obj[u];
-	if(pre_master!=now_master){
-		if(master_obj[pre_master]==u)
-			--master_cnt;
-		if(now_master!=0&&master_obj[now_master]==u)
-			++master_cnt;
-		master_obj[u] = now_master;
-	}
+	master_cnt -= check_pair(u);
+	island_cnt -= check_island(u);
+	master_obj[u] = traffic_mp[u].empty()? 0:traffic_mp[u].rbegin()->u;
+	master_cnt += check_pair(u);
+	island_cnt += check_island(u);
 }
 void updateTraffic(Apply& ap){
-	tmp_p = Pair(ap.u,ap.v);
-	long long old_traffic = 0;
-	if(pair_mp.count(tmp_p))
-		old_traffic = pair_mp[tmp_p];
+	tmp_p = mypair(ap.u,ap.v);
+	long long old_traffic = pair_mp[tmp_p];
 	long long now_traffic = old_traffic + ap.traffic;
 	pair_mp.erase(tmp_p);
 	traffic_mp[ap.u].erase(Node(ap.v,old_traffic));
@@ -80,11 +65,13 @@ void updateTraffic(Apply& ap){
 		traffic_mp[ap.v].insert(Node(ap.u,now_traffic));
 		pair_mp[tmp_p] = now_traffic;
 	}
-	updateState(tmp_p.u);
-	updateState(tmp_p.v);	
+	updateState(ap.u);
+	updateState(ap.v);
 }
+
 int main(){
 	cin >> n >> m;
+	island_cnt = n; master_cnt = 0;
 	for(int i=1;i<=m;++i){
 		for(auto& ap:expire[i])
 			updateTraffic(ap);
@@ -104,7 +91,7 @@ int main(){
 		}
 		cin >> p >> q;
 		if(p)
-			cout << n - not_island.size() << '\n';
+			cout << island_cnt << '\n';
 		if(q)
 			cout << master_cnt << '\n';
 	}
